@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tic Tac Toe</title>
+
+<style>
+/* ================= THEMES ================= */
+:root {
+  --bg1: #0f172a;
+  --bg2: #020617;
+  --card: #1e293b;
+  --primary: #38bdf8;
+  --accent: #f472b6;
+  --cell1: #020617;
+  --cell2: #020617;
+  --text: #e5e7eb;
+  --glow: #38bdf8;
+}
+
+body.light {
+  --bg1: #fdf2f8;
+  --bg2: #fbcfe8;
+  --card: #ffffff;
+  --primary: #ec4899;
+  --accent: #8b5cf6;
+  --cell1: #fdf2f8;
+  --cell2: #fce7f3;
+  --text: #1f2937;
+  --glow: #ec4899;
+}
+
+body.neon {
+  --bg1: #020617;
+  --bg2: #020617;
+  --card: #020617;
+  --primary: #22d3ee;
+  --accent: #a855f7;
+  --cell1: #020617;
+  --cell2: #020617;
+  --text: #e5e7eb;
+  --glow: #22d3ee;
+}
+
+body.forest {
+  --bg1: #052e16;
+  --bg2: #022c22;
+  --card: #064e3b;
+  --primary: #34d399;
+  --accent: #fbbf24;
+  --cell1: #022c22;
+  --cell2: #064e3b;
+  --text: #ecfdf5;
+  --glow: #34d399;
+}
+
+/* ================= BASE ================= */
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game {
+  background: var(--card);
+  padding: 25px;
+  border-radius: 20px;
+  width: 360px;
+  text-align: center;
+  box-shadow: 0 0 40px var(--glow);
+  position: relative;
+}
+
+h1 { color: var(--primary); }
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.cell {
+  height: 95px;
+  font-size: 2.6rem;
+  font-weight: bold;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(145deg, var(--cell1), var(--cell2));
+  color: var(--text);
+}
+
+.cell.X { color: var(--primary); }
+.cell.O { color: var(--accent); }
+
+.cell.win {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #020617;
+}
+
+button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  margin: 4px;
+}
+
+.reset { background: var(--primary); }
+.theme { background: var(--accent); }
+
+/* ================= VICTORY SIGN ================= */
+.victory {
+  position: absolute;
+  font-size: 4rem;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: popWin 1.2s ease forwards;
+}
+
+@keyframes popWin {
+  0% { transform: translateX(-50%) scale(0); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.3); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); }
+}
+</style>
+</head>
+
+<body>
+<div class="game">
+  <h1>Tic Tac Toe</h1>
+  <div id="status">Your turn (X)</div>
+
+  <div class="score">
+    X: <span id="xScore">0</span> |
+    O: <span id="oScore">0</span>
+  </div>
+
+  <div id="highScore">🏆 High Score — X: 0 | O: 0</div>
+
+  <div class="board" id="board"></div>
+
+  <button class="reset" onclick="resetGame()">Restart</button>
+  <button onclick="setDifficulty('easy')">Easy</button>
+  <button onclick="setDifficulty('hard')">Hard</button>
+  <button class="theme" onclick="switchTheme()">Theme</button>
+</div>
+
+<script>
+/* ================= STATE ================= */
+const PLAYER = "X";
+const AI = "O";
+let board = Array(9).fill(null);
+let gameOver = false;
+let scores = { X: 0, O: 0 };
+let highScore = { X: 0, O: 0 };
+let difficulty = "hard";
+let themeIndex = 0;
+
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+
+/* ================= BOARD ================= */
+function createBoard() {
+  boardEl.innerHTML = "";
+  board.forEach((_, i) => {
+    const cell = document.createElement("button");
+    cell.className = "cell";
+    cell.onclick = () => playerMove(i);
+    boardEl.appendChild(cell);
+  });
+}
+createBoard();
+
+/* ================= GAME ================= */
+function playerMove(i) {
+  if (board[i] || gameOver) return;
+  makeMove(i, PLAYER);
+  if (!checkEnd(PLAYER)) setTimeout(aiMove, 300);
+}
+
+function aiMove() {
+  let move;
+  if (difficulty === "easy") {
+    const empty = board.map((v,i)=>v?null:i).filter(v=>v!==null);
+    move = empty[Math.floor(Math.random()*empty.length)];
+  } else {
+    move = minimax(board, AI).index;
+  }
+  makeMove(move, AI);
+  checkEnd(AI);
+}
+
+function makeMove(i, p) {
+  board[i] = p;
+  boardEl.children[i].textContent = p;
+  boardEl.children[i].classList.add(p);
+}
+
+/* ================= WIN ================= */
+const wins = [
+  [0,1,2],[3,4,5],[6,7,8],
+  [0,3,6],[1,4,7],[2,5,8],
+  [0,4,8],[2,4,6]
+];
+
+function checkEnd(player) {
+  for (let c of wins) {
+    if (c.every(i => board[i] === player)) {
+      c.forEach(i => boardEl.children[i].classList.add("win"));
+      statusEl.textContent = player === PLAYER ? "🎉 You Win!" : "🤖 Computer Wins!";
+      scores[player]++;
+      showVictory(player);
+      updateScore();
+      gameOver = true;
+      return true;
+    }
+  }
+
+  if (board.every(v => v)) {
+    statusEl.textContent = "🤝 Draw!";
+    gameOver = true;
+    return true;
+  }
+
+  statusEl.textContent = player === PLAYER ? "Computer's Turn" : "Your Turn";
+  return false;
+}
+
+/* ================= AI ================= */
+function minimax(b, p) {
+  const avail = b.map((v,i)=>v?null:i).filter(v=>v!==null);
+  if (winner(b, PLAYER)) return { score: -10 };
+  if (winner(b, AI)) return { score: 10 };
+  if (!avail.length) return { score: 0 };
+
+  const moves = [];
+  for (let i of avail) {
+    const move = { index: i };
+    b[i] = p;
+    move.score = minimax(b, p === AI ? PLAYER : AI).score;
+    b[i] = null;
+    moves.push(move);
+  }
+  return p === AI
+    ? moves.reduce((a,b)=>a.score>b.score?a:b)
+    : moves.reduce((a,b)=>a.score<b.score?a:b);
+}
+
+function winner(b,p) {
+  return wins.some(c => c.every(i => b[i] === p));
+}
+
+/* ================= UTIL ================= */
+function resetGame() {
+  board = Array(9).fill(null);
+  gameOver = false;
+  statusEl.textContent = "Your turn (X)";
+  createBoard();
+}
+
+function updateScore() {
+  xScore.textContent = scores.X;
+  oScore.textContent = scores.O;
+
+  highScore.X = Math.max(highScore.X, scores.X);
+  highScore.O = Math.max(highScore.O, scores.O);
+
+  highScoreEl.textContent =
+    `🏆 High Score — X: ${highScore.X} | O: ${highScore.O}`;
+}
+
+function setDifficulty(level) {
+  difficulty = level;
+  statusEl.textContent = `Difficulty: ${level.toUpperCase()} | Your turn`;
+}
+
+function switchTheme() {
+  themeIndex = (themeIndex + 1) % 4;
+  document.body.className = ["", "light", "neon", "forest"][themeIndex];
+}
+
+function showVictory(player) {
+  const v = document.createElement("div");
+  v.className = "victory";
+  v.textContent = player === PLAYER ? "🏆" : "🤖";
+  document.querySelector(".game").appendChild(v);
+  setTimeout(() => v.remove(), 1500);
+}
+</script>
+</body>
+</html>
